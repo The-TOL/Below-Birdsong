@@ -1,3 +1,4 @@
+-- JAM --
 # Day 1
 4/5/2025 - 9:03 AM CET
 - Set up file structure
@@ -82,8 +83,6 @@
 - Added sprite sprite and removed animations
 - Altered gravity and jump velocity
 
-
-
 # Day 4
 4/8/2025 01:49 CET
 - Fixed. Doors.
@@ -99,3 +98,5 @@
 AGAIN!
 
 AAAA DONE
+
+-- POST-JAM --
