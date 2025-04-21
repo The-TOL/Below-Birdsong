@@ -100,3 +100,6 @@ AGAIN!
 AAAA DONE
 
 -- POST-JAM --
+
+4/21/2025 4:50 PM CET
+- Fixed doors by adding an enter prompt to use the doors

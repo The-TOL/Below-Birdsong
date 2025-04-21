@@ -199,6 +199,8 @@ function Game:keypressed(key)
             self.player.isInShack = true
         elseif self.player.isInShack then
             self.player.isInShack = false
+        elseif self.player.nearDoor then
+            worldGenerator.useDoor(self.world, self.player, self.player.nearDoor)
         end
     end
 end

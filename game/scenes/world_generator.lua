@@ -516,4 +516,145 @@ function worldGenerator.drawDebug(world, cameraY, cameraX)
     mapGenerator.drawDebug(world.mapData, world.tileSize, cameraY, cameraX)
 end
 
+-- Check if player is near a door
+function worldGenerator.isNearDoor(world, player)
+    -- Detection radius (in pixels) - significantly increased, especially in the vertical direction
+    local doorDetectionRadiusX = 150   -- Slightly wider horizontal detection
+    local doorDetectionRadiusY = 300   -- Much larger vertical detection (emphasis on downward)
+    
+    -- Get player center position
+    local playerCenterX = player.x + player.collisionBox.width / 2
+    local playerCenterY = player.y + player.collisionBox.height / 2
+    
+    -- Check all door connections
+    for _, connection in ipairs(world.doorConnections) do
+        local door = connection.door
+        local doorWorldX = (door.x - 1) * world.tileSize + world.tileSize / 2
+        local doorWorldY = (door.y - 1) * world.tileSize + world.tileSize / 2
+        
+        -- Use elliptical detection area (wider in Y direction)
+        local normalizedX = (playerCenterX - doorWorldX) / doorDetectionRadiusX
+        local normalizedY = (playerCenterY - doorWorldY) / doorDetectionRadiusY
+        local distanceSquared = normalizedX * normalizedX + normalizedY * normalizedY
+        
+        -- If within detection ellipse (using squared distance to avoid square root)
+        if distanceSquared <= 1.0 then
+            return {
+                isDoor = true,
+                doorInfo = connection,
+                doorX = doorWorldX,
+                doorY = doorWorldY
+            }
+        end
+    end
+    
+    return false
+end
+
+-- Use door when prompted with Enter key
+function worldGenerator.useDoor(world, player, doorInfo)
+    if not doorInfo or not doorInfo.doorInfo then return false end
+    
+    local previousLevel = world.currentLevel
+    world.currentLevel = doorInfo.doorInfo.targetLevel
+    
+    local targetDoor = nil
+    
+    for _, connection in ipairs(world.doorConnections) do
+        if connection.targetLevel == previousLevel and
+           ((doorInfo.doorInfo.isEntrance and not connection.isEntrance) or
+            (not doorInfo.doorInfo.isEntrance and connection.isEntrance)) then
+            targetDoor = connection.door
+            break
+        end
+    end
+
+    if not targetDoor then
+        local doorsInTargetLevel = {}
+        for _, connection in ipairs(world.doorConnections) do
+            local door = connection.door
+            local doorLevel = mapGenerator.getCurrentLevel(door.y, world.levels)
+            if doorLevel == world.currentLevel then
+                table.insert(doorsInTargetLevel, door)
+            end
+        end
+        
+        if #doorsInTargetLevel > 0 then
+            targetDoor = doorsInTargetLevel[math.random(#doorsInTargetLevel)]
+        end
+    end
+    
+    if targetDoor then
+        player.x = (targetDoor.x - 1) * world.tileSize + (world.tileSize / 2)
+        
+        local doorY = (targetDoor.y - 1) * world.tileSize + (world.tileSize / 2)
+        local verticalOffset = world.tileSize * 5
+        player.y = doorY - verticalOffset
+        
+        player.velocityY = 0
+        
+        if not doorInfo.doorInfo.isEntrance then
+            world.lastUsedDoor = { x = targetDoor.x, y = targetDoor.y, cooldown = 2.0 }
+        end
+        
+        return true
+    end
+    
+    return false
+end
+
+function worldGenerator.drawDoorPrompts(world, player, cameraY)
+    if player.nearDoor then
+        love.graphics.setColor(1, 1, 1, 1)
+        local doorInfo = player.nearDoor
+        love.graphics.print(
+            "Press ENTER to use door", 
+            doorInfo.doorX - 60, 
+            doorInfo.doorY - 60 - cameraY
+        )
+    end
+end
+
+function worldGenerator.checkCollision(world, x, y, width, height)
+    width = width or world.tileSize
+    height = height or world.tileSize
+
+    local left = x
+    local right = x + width
+    local top = y
+    local bottom = y + height
+
+    local tileLeft = math.floor(left / world.tileSize) + 1
+    local tileRight = math.ceil(right / world.tileSize)
+    local tileTop = math.floor(top / world.tileSize) + 1
+    local tileBottom = math.ceil(bottom / world.tileSize)
+
+    tileLeft = math.max(1, math.min(tileLeft, world.mapWidth))
+    tileRight = math.max(1, math.min(tileRight, world.mapWidth))
+    tileTop = math.max(1, math.min(tileTop, world.mapHeight))
+    tileBottom = math.max(1, math.min(tileBottom, world.mapHeight))
+
+    for checkY = tileTop, tileBottom do
+        for checkX = tileLeft, tileRight do
+            local tileType = world.mapData[checkY][checkX]
+            
+            if tileType == world.WALL or tileType == world.BLOCKAGE then
+                return { isWall = true }
+            elseif tileType == world.PLATFORM then
+                local tileTopY = (checkY - 1) * world.tileSize
+                local playerBottom = bottom
+                
+                if playerBottom >= tileTopY and playerBottom <= tileTopY + world.tileSize/2 then
+                    return {
+                        isPlatform = true,
+                        resolveY = tileTopY - height
+                    }
+                end
+            end
+        end
+    end
+    
+    return false
+end
+
 return worldGenerator

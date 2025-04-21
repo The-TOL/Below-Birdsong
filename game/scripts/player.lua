@@ -87,13 +87,15 @@ function Player:update(dt, world, windowWidth)
         local playerY = self.y + self.collisionBox.offsetY + self.collisionBox.height/2
         
         -- Check multiple tiles around and below the shack for collision
-        local tileRange = 8
+        local tileRangeX = 10  -- Increased horizontal range (was 8)
+        local tileRangeY = 20  -- Much larger downward range
         local centerTileX = math.floor(playerX / world.tileSize) + 1
         local centerTileY = math.floor(playerY / world.tileSize) + 1
         
         local nearShack = false
-        for checkY = centerTileY - tileRange, centerTileY + tileRange do
-            for checkX = centerTileX - tileRange, centerTileX + tileRange do
+        -- Focus more on checking tiles below the player
+        for checkY = centerTileY - tileRangeX, centerTileY + tileRangeY do
+            for checkX = centerTileX - tileRangeX, centerTileX + tileRangeX do
                 if checkY >= 1 and checkY <= world.mapHeight and 
                     checkX >= 1 and checkX <= world.mapWidth then
                     if world.mapData[checkY][checkX] == world.SHACK then
@@ -107,6 +109,9 @@ function Player:update(dt, world, windowWidth)
         
         self.nearShack = nearShack
         self.oxygen.isRefilling = self.isInShack
+        
+        -- Check if player is near a door
+        self.nearDoor = worldGenerator.isNearDoor(world, self)
         
         self.oxygen:update(dt)
         if self.oxygen.isDepleted then
@@ -235,7 +240,7 @@ function Player:draw(cameraY)
 
 end
 
--- Draw prompts when near shack
+-- Draw prompts when near shack or door
 function Player:getPromptInfo(cameraY)
     if self.nearShack and not self.isInShack then
         return {
@@ -249,6 +254,13 @@ function Player:getPromptInfo(cameraY)
             text = "Press ENTER to exit shack",
             x = self.x - 60,
             y = self.y - 30 - cameraY,
+            isScreenSpace = false
+        }
+    elseif self.nearDoor then
+        return {
+            text = "Press ENTER to use door",
+            x = self.nearDoor.doorX - 60,
+            y = self.nearDoor.doorY - 60 - cameraY,
             isScreenSpace = false
         }
     end
